@@ -16,60 +16,31 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install QEMU and static busybox
+      - name: Apt install qemu and busybox
         run: |
-          set -x
-          sudo apt-get update > /tmp/apt.log 2>&1
-          echo "apt_update_exit=$?"
-          sudo apt-get install -y qemu-system-x86 busybox-static wget >> /tmp/apt.log 2>&1
-          echo "apt_install_exit=$?"
-          {
-            echo "### apt tail"
-            echo '```'
-            tail -n 40 /tmp/apt.log
-            echo '```'
-            echo "qemu_path=$(command -v qemu-system-x86_64 || true)"
-            echo "busybox_path=$(command -v busybox || true)"
-            echo "bios_microvm=$(ls -l /usr/share/qemu/bios-microvm.bin 2>&1 || true)"
-            echo "qemu_module_dir=$(ls -d /usr/lib/x86_64-linux-gnu/qemu 2>&1 || true)"
-          } >> "$GITHUB_STEP_SUMMARY"
+          sudo apt-get update
+          sudo apt-get install -y qemu-system-x86 busybox-static wget
+
+      - name: Assemble microvm asset layout
+        run: |
+          set -eux
           mkdir -p /opt/cgt-microvm/bin /opt/cgt-microvm/kernel \
                    /opt/cgt-microvm/root/usr/lib/x86_64-linux-gnu \
                    /opt/cgt-microvm/root/usr/share
-          cp "$(command -v qemu-system-x86_64)" /opt/cgt-microvm/bin/ || echo "cp_qemu_failed=$?"
-          cp "$(command -v busybox)" /opt/cgt-microvm/bin/busybox || echo "cp_busybox_failed=$?"
-          chmod +x /opt/cgt-microvm/bin/* || true
+          cp "$(command -v qemu-system-x86_64)" /opt/cgt-microvm/bin/
+          cp "$(command -v busybox)" /opt/cgt-microvm/bin/busybox
+          chmod +x /opt/cgt-microvm/bin/qemu-system-x86_64 /opt/cgt-microvm/bin/busybox
           ln -sfn /usr/share/qemu /opt/cgt-microvm/root/usr/share/qemu
           ln -sfn /usr/lib/x86_64-linux-gnu/qemu /opt/cgt-microvm/root/usr/lib/x86_64-linux-gnu/qemu
           ln -sfn /usr/lib /opt/cgt-microvm/root/lib
           wget -q -O /opt/cgt-microvm/kernel/vmlinuz-virt \
-            https://dl-cdn.alpinelinux.org/alpine/v3.20/releases/x86_64/netboot/vmlinuz-virt || echo "wget_kernel_failed=$?"
-          {
-            echo "### asset check"
-            ls -l /opt/cgt-microvm/bin /opt/cgt-microvm/kernel 2>&1
-            test -s /opt/cgt-microvm/kernel/vmlinuz-virt && echo kernel_ok
-            test -f /opt/cgt-microvm/root/usr/share/qemu/bios-microvm.bin && echo bios_ok
-            /opt/cgt-microvm/bin/qemu-system-x86_64 --version 2>&1 | head -n 2
-          } >> "$GITHUB_STEP_SUMMARY" 2>&1
-          test -x /opt/cgt-microvm/bin/qemu-system-x86_64
-          test -x /opt/cgt-microvm/bin/busybox
-          test -s /opt/cgt-microvm/kernel/vmlinuz-virt
-          test -f /opt/cgt-microvm/root/usr/share/qemu/bios-microvm.bin
+            https://dl-cdn.alpinelinux.org/alpine/v3.20/releases/x86_64/netboot/vmlinuz-virt
+          ls -l /opt/cgt-microvm/bin /opt/cgt-microvm/kernel /opt/cgt-microvm/root/usr/share/qemu/bios-microvm.bin
 
       - name: Run real MicroVM isolation assertions
         env:
           CGT_MICROVM_HOME: /opt/cgt-microvm
-        run: |
-          set -o pipefail
-          python3 microvm/verify_microvm.py 2>&1 | tee /tmp/verify.log
-          status=${PIPESTATUS[0]}
-          {
-            echo "### verifier output (exit $status)"
-            echo '```'
-            tail -n 120 /tmp/verify.log
-            echo '```'
-          } >> "$GITHUB_STEP_SUMMARY"
-          exit $status
+        run: python3 microvm/verify_microvm.py
 
       - name: Runner facts
         if: always()
