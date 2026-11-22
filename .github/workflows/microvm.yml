@@ -11,18 +11,39 @@ permissions:
 jobs:
   microvm-real-run:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Build MicroVM runner image
-        run: docker build -t cgt-microvm-ci ./microvm
+      - name: Install QEMU and static busybox
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y qemu-system-x86 busybox-static wget
+          set -eux
+          mkdir -p /opt/cgt-microvm/bin /opt/cgt-microvm/kernel \
+                   /opt/cgt-microvm/root/usr/lib/x86_64-linux-gnu \
+                   /opt/cgt-microvm/root/usr/share
+          cp "$(command -v qemu-system-x86_64)" /opt/cgt-microvm/bin/
+          cp "$(command -v busybox)" /opt/cgt-microvm/bin/busybox
+          chmod +x /opt/cgt-microvm/bin/*
+          ln -s /usr/share/qemu /opt/cgt-microvm/root/usr/share/qemu
+          ln -s /usr/lib/x86_64-linux-gnu/qemu /opt/cgt-microvm/root/usr/lib/x86_64-linux-gnu/qemu
+          ln -s /usr/lib /opt/cgt-microvm/root/lib
+          wget -q -O /opt/cgt-microvm/kernel/vmlinuz-virt \
+            https://dl-cdn.alpinelinux.org/alpine/v3.20/releases/x86_64/netboot/vmlinuz-virt
+          test -s /opt/cgt-microvm/kernel/vmlinuz-virt
+          test -f /opt/cgt-microvm/root/usr/share/qemu/bios-microvm.bin
+          qemu-system-x86_64 --version
 
       - name: Run real MicroVM isolation assertions
-        run: docker run --rm cgt-microvm-ci
+        env:
+          CGT_MICROVM_HOME: /opt/cgt-microvm
+        run: python3 microvm/verify_microvm.py
 
       - name: Runner facts
+        if: always()
         run: |
           echo "runner_kernel=$(uname -r)"
           test ! -e /dev/kvm && echo "host_kvm=absent (TCG path)" || echo "host_kvm=present"
+          ls -l /opt/cgt-microvm/bin /opt/cgt-microvm/kernel
