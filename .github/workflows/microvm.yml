@@ -16,18 +16,44 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Apt install qemu and busybox
+      - name: Install QEMU and static busybox
         run: |
           sudo apt-get update
           sudo apt-get install -y qemu-system-x86 busybox-static wget
 
-      - name: Inspect qemu data dir
+      - name: Assemble microvm assets
         run: |
-          set -x
-          ls -l /usr/share/qemu || true
-          echo "::error title=diag::share_qemu=$(ls /usr/share/qemu 2>&1 | tr '\n' ',')"
-          echo "::error title=diag::module_dir=$(ls -d /usr/lib/x86_64-linux-gnu/qemu 2>&1)"
-          echo "::error title=diag::bios_microvm=$(test -f /usr/share/qemu/bios-microvm.bin && echo present || echo missing)"
-          echo "::error title=diag::bios_256k=$(test -f /usr/share/qemu/bios-256k.bin && echo present || echo missing)"
-          echo "::error title=diag::qemu_version=$(qemu-system-x86_64 --version | head -n1)"
-          test -f /usr/share/qemu/bios-microvm.bin
+          set -eux
+          mkdir -p /opt/cgt-microvm/bin /opt/cgt-microvm/kernel \
+                   /opt/cgt-microvm/root/usr/lib/x86_64-linux-gnu \
+                   /opt/cgt-microvm/root/usr/share
+          cp "$(command -v qemu-system-x86_64)" /opt/cgt-microvm/bin/
+          cp "$(command -v busybox)" /opt/cgt-microvm/bin/busybox
+          chmod +x /opt/cgt-microvm/bin/qemu-system-x86_64 /opt/cgt-microvm/bin/busybox
+          ln -sfn /usr/share/qemu /opt/cgt-microvm/root/usr/share/qemu
+          ln -sfn /usr/lib/x86_64-linux-gnu/qemu /opt/cgt-microvm/root/usr/lib/x86_64-linux-gnu/qemu
+          ln -sfn /usr/lib /opt/cgt-microvm/root/lib
+          wget -q -O /opt/cgt-microvm/kernel/vmlinuz-virt \
+            https://dl-cdn.alpinelinux.org/alpine/v3.20/releases/x86_64/netboot/vmlinuz-virt
+          test -s /opt/cgt-microvm/kernel/vmlinuz-virt
+          test -f /opt/cgt-microvm/root/usr/share/qemu/linuxboot_dma.bin
+          /opt/cgt-microvm/bin/qemu-system-x86_64 --version
+
+      - name: Run real MicroVM isolation assertions
+        env:
+          CGT_MICROVM_HOME: /opt/cgt-microvm
+        run: |
+          set -o pipefail
+          python3 microvm/verify_microvm.py 2>&1 | tee /tmp/verify.log
+          status=${PIPESTATUS[0]}
+          if [ "$status" -ne 0 ]; then
+            echo "::error title=verifier::$(tail -n 8 /tmp/verify.log | tr '\n' '|')"
+          fi
+          exit $status
+
+      - name: Runner facts
+        if: always()
+        run: |
+          echo "runner_kernel=$(uname -r)"
+          test ! -e /dev/kvm && echo "host_kvm=absent (TCG path)" || echo "host_kvm=present"
+          ls -l /opt/cgt-microvm/bin /opt/cgt-microvm/kernel || true
