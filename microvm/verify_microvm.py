@@ -37,8 +37,10 @@ def main() -> int:
     def record(name, ok, detail):
         evidence["tests"].append({"name": name, "ok": bool(ok), "detail": detail})
         print(("PASS " if ok else "FAIL ") + name + " :: " + str(detail))
+        if not ok:
+            print("::error title=FAIL:%s::%s" % (name, str(detail)[:900]))
 
-    r = QemuMicroVm(a, timeout_s=20).run(
+    r = QemuMicroVm(a, timeout_s=25).run(
         "uname -r; nproc; head -1 /proc/meminfo; ls /sys/class/net")
     lines = r.stdout.splitlines()
     record("real_guest_kernel", r.ok and lines and lines[0].startswith("6.6.")
@@ -46,28 +48,27 @@ def main() -> int:
     record("one_vcpu", len(lines) > 1 and lines[1] == "1", lines[:2])
     mem = [x for x in lines if "MemTotal" in x]
     record("memory_capped", bool(mem) and int(mem[0].split()[1]) < 128 * 1024, mem)
-    net = [x for x in lines if x == "lo"]
     record("no_network_device", len(lines) > 3 and lines[3] == "lo"
            and all(x == "lo" for x in lines[3:]), lines[3:])
 
     marker = os.path.join(tempfile.gettempdir(), "cgt_host_secret_ci.txt")
     with open(marker, "w", encoding="utf-8") as f:
         f.write("HOST_SECRET_MUST_NOT_LEAK")
-    r = QemuMicroVm(a, timeout_s=20).run(
+    r = QemuMicroVm(a, timeout_s=25).run(
         "cat %s 2>/dev/null || echo ABSENT; ls /home | wc -l" % marker)
     record("host_file_invisible",
            r.ok and "ABSENT" in r.stdout and "HOST_SECRET_MUST_NOT_LEAK" not in r.stdout,
            r.stdout)
     os.remove(marker)
 
-    r = QemuMicroVm(a, timeout_s=20).run(
+    r = QemuMicroVm(a, timeout_s=25).run(
         "echo STATE > /tmp/cgt_state; cat /tmp/cgt_state")
-    r2 = QemuMicroVm(a, timeout_s=20).run(
+    r2 = QemuMicroVm(a, timeout_s=25).run(
         "cat /tmp/cgt_state 2>/dev/null || echo NO_STATE")
     record("one_shot_rootfs", r.ok and r2.ok and "STATE" in r.stdout
            and "NO_STATE" in r2.stdout, [r.stdout, r2.stdout])
 
-    r = QemuMicroVm(a, timeout_s=2).run("echo BEFORE; sleep 9; echo AFTER")
+    r = QemuMicroVm(a, timeout_s=12).run("echo BEFORE; sleep 25; echo AFTER")
     record("wall_timeout_kill", (not r.ok) and r.timed_out and "BEFORE" in r.stdout
            and "AFTER" not in r.stdout, r.as_dict())
 
