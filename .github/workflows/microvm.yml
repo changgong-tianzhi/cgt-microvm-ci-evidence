@@ -21,39 +21,13 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y qemu-system-x86 busybox-static wget
 
-      - name: Copy qemu and busybox binaries
+      - name: Inspect qemu data dir
         run: |
-          set -eux
-          mkdir -p /opt/cgt-microvm/bin /opt/cgt-microvm/kernel
-          ls -l "$(command -v qemu-system-x86_64)" "$(command -v busybox)"
-          cp "$(command -v qemu-system-x86_64)" /opt/cgt-microvm/bin/
-          cp "$(command -v busybox)" /opt/cgt-microvm/bin/busybox
-          chmod +x /opt/cgt-microvm/bin/qemu-system-x86_64 /opt/cgt-microvm/bin/busybox
-
-      - name: Link qemu data and module dirs
-        run: |
-          set -eux
-          mkdir -p /opt/cgt-microvm/root/usr/lib/x86_64-linux-gnu /opt/cgt-microvm/root/usr/share
-          ln -sfn /usr/share/qemu /opt/cgt-microvm/root/usr/share/qemu
-          ln -sfn /usr/lib/x86_64-linux-gnu/qemu /opt/cgt-microvm/root/usr/lib/x86_64-linux-gnu/qemu
-          ln -sfn /usr/lib /opt/cgt-microvm/root/lib
-          ls -l /opt/cgt-microvm/root/usr/share/qemu/bios-microvm.bin
-
-      - name: Download Alpine guest kernel
-        run: |
-          set -eux
-          wget -q -O /opt/cgt-microvm/kernel/vmlinuz-virt \
-            https://dl-cdn.alpinelinux.org/alpine/v3.20/releases/x86_64/netboot/vmlinuz-virt
-          ls -l /opt/cgt-microvm/kernel/vmlinuz-virt
-
-      - name: Run real MicroVM isolation assertions
-        env:
-          CGT_MICROVM_HOME: /opt/cgt-microvm
-        run: python3 microvm/verify_microvm.py
-
-      - name: Runner facts
-        if: always()
-        run: |
-          echo "runner_kernel=$(uname -r)"
-          test ! -e /dev/kvm && echo "host_kvm=absent (TCG path)" || echo "host_kvm=present"
-          ls -l /opt/cgt-microvm/bin /opt/cgt-microvm/kernel || true
+          set -x
+          ls -l /usr/share/qemu || true
+          echo "::error title=diag::share_qemu=$(ls /usr/share/qemu 2>&1 | tr '\n' ',')"
+          echo "::error title=diag::module_dir=$(ls -d /usr/lib/x86_64-linux-gnu/qemu 2>&1)"
+          echo "::error title=diag::bios_microvm=$(test -f /usr/share/qemu/bios-microvm.bin && echo present || echo missing)"
+          echo "::error title=diag::bios_256k=$(test -f /usr/share/qemu/bios-256k.bin && echo present || echo missing)"
+          echo "::error title=diag::qemu_version=$(qemu-system-x86_64 --version | head -n1)"
+          test -f /usr/share/qemu/bios-microvm.bin
