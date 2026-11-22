@@ -47,6 +47,7 @@ jobs:
       - name: Run real MicroVM isolation assertions
         env:
           CGT_MICROVM_HOME: /opt/cgt-microvm
+          CGT_MICROVM_ACCEL: tcg
         run: |
           set +e
           python3 microvm/verify_microvm.py > /tmp/verify.log 2>&1
@@ -62,5 +63,5 @@ jobs:
         if: always()
         run: |
           echo "runner_kernel=$(uname -r)"
-          test ! -e /dev/kvm && echo "host_kvm=absent (TCG path)" || echo "host_kvm=present"
+          test -r /dev/kvm && echo "host_kvm=readable" || echo "host_kvm=not-readable (TCG path)"
           ls -l /opt/cgt-microvm/bin /opt/cgt-microvm/kernel /usr/share/qemu/bios-microvm.bin || true

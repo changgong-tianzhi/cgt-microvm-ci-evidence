@@ -13,6 +13,9 @@ from cg_tz_microvm_runtime import (MicroVmAssets, QemuMicroVm,
 
 def main() -> int:
     a = MicroVmAssets.discover()
+    # GitHub runners expose /dev/kvm but the unprivileged job user cannot use it;
+    # the workflow pins TCG explicitly so the evidence path stays runnable.
+    a.accel = os.environ.get("CGT_MICROVM_ACCEL", a.accel)
     evidence = {"assets": a.manifest(), "tests": []}
     if not a.available:
         print(json.dumps({"ok": False, "reason": "assets unavailable",
