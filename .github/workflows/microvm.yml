@@ -36,9 +36,9 @@ jobs:
           wget -q -O /opt/cgt-microvm/kernel/vmlinuz-virt \
             https://dl-cdn.alpinelinux.org/alpine/v3.20/releases/x86_64/netboot/vmlinuz-virt
           # Ubuntu's qemu-system-x86 no longer ships bios-microvm.bin; take the
-          # upstream 10.2 blob that matches the runner's QEMU version.
-          sudo curl -fsSL -H "Accept: application/vnd.github.raw" \
-            "https://api.github.com/repos/qemu/qemu/contents/pc-bios/bios-microvm.bin?ref=v10.2.0" \
+          # upstream blob matching the runner's QEMU 10.2 line.
+          sudo curl -fsSL \
+            "https://raw.githubusercontent.com/qemu/qemu/v10.2.0/pc-bios/bios-microvm.bin" \
             -o /usr/share/qemu/bios-microvm.bin
           test -s /opt/cgt-microvm/kernel/vmlinuz-virt
           test -s /usr/share/qemu/bios-microvm.bin
