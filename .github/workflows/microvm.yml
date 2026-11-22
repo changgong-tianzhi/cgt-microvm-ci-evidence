@@ -1,0 +1,28 @@
+name: microvm-isolation
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  microvm-real-run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build MicroVM runner image
+        run: docker build -t cgt-microvm-ci ./microvm
+
+      - name: Run real MicroVM isolation assertions
+        run: docker run --rm cgt-microvm-ci
+
+      - name: Runner facts
+        run: |
+          echo "runner_kernel=$(uname -r)"
+          test ! -e /dev/kvm && echo "host_kvm=absent (TCG path)" || echo "host_kvm=present"
