@@ -37,11 +37,11 @@ jobs:
             https://dl-cdn.alpinelinux.org/alpine/v3.20/releases/x86_64/netboot/vmlinuz-virt
           # Ubuntu's qemu-system-x86 no longer ships bios-microvm.bin; take the
           # upstream 10.2 blob that matches the runner's QEMU version.
-          curl -fsSL -H "Accept: application/vnd.github.raw" \
+          sudo curl -fsSL -H "Accept: application/vnd.github.raw" \
             "https://api.github.com/repos/qemu/qemu/contents/pc-bios/bios-microvm.bin?ref=v10.2.0" \
-            -o /opt/cgt-microvm/root/usr/share/qemu/bios-microvm.bin
+            -o /usr/share/qemu/bios-microvm.bin
           test -s /opt/cgt-microvm/kernel/vmlinuz-virt
-          test -s /opt/cgt-microvm/root/usr/share/qemu/bios-microvm.bin
+          test -s /usr/share/qemu/bios-microvm.bin
           /opt/cgt-microvm/bin/qemu-system-x86_64 --version
 
       - name: Run real MicroVM isolation assertions
@@ -63,4 +63,4 @@ jobs:
         run: |
           echo "runner_kernel=$(uname -r)"
           test ! -e /dev/kvm && echo "host_kvm=absent (TCG path)" || echo "host_kvm=present"
-          ls -l /opt/cgt-microvm/bin /opt/cgt-microvm/kernel /opt/cgt-microvm/root/usr/share/qemu/bios-microvm.bin || true
+          ls -l /opt/cgt-microvm/bin /opt/cgt-microvm/kernel /usr/share/qemu/bios-microvm.bin || true
