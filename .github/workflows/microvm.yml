@@ -48,7 +48,6 @@ jobs:
         env:
           CGT_MICROVM_HOME: /opt/cgt-microvm
           CGT_MICROVM_ACCEL: tcg
-          QEMU_CPU: max
         run: |
           set +e
           python3 microvm/verify_microvm.py > /tmp/verify.log 2>&1
@@ -59,6 +58,14 @@ jobs:
             echo "::error title=verifier::$(tail -n 10 /tmp/verify.log | tr '\n' '|')"
           fi
           exit $status
+
+      - name: Publish evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: microvm-evidence-${{ github.run_id }}
+          path: /tmp/verify.log
+          if-no-files-found: warn
 
       - name: Runner facts
         if: always()

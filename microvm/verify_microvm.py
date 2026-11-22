@@ -96,7 +96,12 @@ def main() -> int:
     evidence["runner"] = {"GITHUB_ACTIONS": os.environ.get("GITHUB_ACTIONS"),
                           "GITHUB_RUN_ID": os.environ.get("GITHUB_RUN_ID"),
                           "GITHUB_SHA": os.environ.get("GITHUB_SHA")}
-    print("CGT_EVIDENCE=" + json.dumps(evidence, ensure_ascii=False, sort_keys=True))
+    compact = json.dumps(evidence, ensure_ascii=False, sort_keys=True,
+                         separators=(",", ":"))
+    print("CGT_EVIDENCE=" + compact)
+    # Annotations are readable without auth, so the green run doubles as
+    # machine-verifiable public evidence.
+    print("::notice title=CGT_EVIDENCE::" + compact[:60000])
     return 0 if evidence["ok"] else 1
 
 
