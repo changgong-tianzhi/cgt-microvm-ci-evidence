@@ -2,7 +2,8 @@ FROM alpine:3.20.3
 
 # QEMU microvm machine + Alpine virt kernel; assets baked into the image.
 RUN set -eux; \
-    apk add --no-cache qemu-system-x86 busybox-static wget ca-certificates; \
+    echo "https://dl-cdn.alpinelinux.org/alpine/v3.20/community" >> /etc/apk/repositories; \
+    apk add --no-cache qemu-system-x86_64 busybox-static wget ca-certificates; \
     mkdir -p /opt/cgt-microvm/bin /opt/cgt-microvm/kernel \
              /opt/cgt-microvm/root/usr/lib/x86_64-linux-gnu \
              /opt/cgt-microvm/root/usr/share; \
