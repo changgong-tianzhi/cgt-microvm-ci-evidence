@@ -48,6 +48,7 @@ jobs:
         env:
           CGT_MICROVM_HOME: /opt/cgt-microvm
           CGT_MICROVM_ACCEL: tcg
+          QEMU_CPU: max
         run: |
           set +e
           python3 microvm/verify_microvm.py > /tmp/verify.log 2>&1
