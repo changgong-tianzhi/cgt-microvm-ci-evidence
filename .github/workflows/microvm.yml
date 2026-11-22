@@ -21,21 +21,30 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y qemu-system-x86 busybox-static wget
 
-      - name: Assemble microvm asset layout
+      - name: Copy qemu and busybox binaries
         run: |
           set -eux
-          mkdir -p /opt/cgt-microvm/bin /opt/cgt-microvm/kernel \
-                   /opt/cgt-microvm/root/usr/lib/x86_64-linux-gnu \
-                   /opt/cgt-microvm/root/usr/share
+          mkdir -p /opt/cgt-microvm/bin /opt/cgt-microvm/kernel
+          ls -l "$(command -v qemu-system-x86_64)" "$(command -v busybox)"
           cp "$(command -v qemu-system-x86_64)" /opt/cgt-microvm/bin/
           cp "$(command -v busybox)" /opt/cgt-microvm/bin/busybox
           chmod +x /opt/cgt-microvm/bin/qemu-system-x86_64 /opt/cgt-microvm/bin/busybox
+
+      - name: Link qemu data and module dirs
+        run: |
+          set -eux
+          mkdir -p /opt/cgt-microvm/root/usr/lib/x86_64-linux-gnu /opt/cgt-microvm/root/usr/share
           ln -sfn /usr/share/qemu /opt/cgt-microvm/root/usr/share/qemu
           ln -sfn /usr/lib/x86_64-linux-gnu/qemu /opt/cgt-microvm/root/usr/lib/x86_64-linux-gnu/qemu
           ln -sfn /usr/lib /opt/cgt-microvm/root/lib
+          ls -l /opt/cgt-microvm/root/usr/share/qemu/bios-microvm.bin
+
+      - name: Download Alpine guest kernel
+        run: |
+          set -eux
           wget -q -O /opt/cgt-microvm/kernel/vmlinuz-virt \
             https://dl-cdn.alpinelinux.org/alpine/v3.20/releases/x86_64/netboot/vmlinuz-virt
-          ls -l /opt/cgt-microvm/bin /opt/cgt-microvm/kernel /opt/cgt-microvm/root/usr/share/qemu/bios-microvm.bin
+          ls -l /opt/cgt-microvm/kernel/vmlinuz-virt
 
       - name: Run real MicroVM isolation assertions
         env:
