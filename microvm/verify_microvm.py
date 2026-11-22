@@ -10,6 +10,18 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from cg_tz_microvm_runtime import (MicroVmAssets, QemuMicroVm,
                                   QemuMicroVmFactory, MicroVmQuotaError)
 
+# Ubuntu's static busybox uses AVX; QEMU's default qemu64 CPU under TCG does
+# not expose it. Pin a max CPU model for the CI evidence run.
+_orig_command = QemuMicroVm._command
+
+
+def _command_with_max_cpu(self, initrd, monitor_sock):
+    args = _orig_command(self, initrd, monitor_sock)
+    return [args[0], "-cpu", "max"] + args[1:]
+
+
+QemuMicroVm._command = _command_with_max_cpu
+
 
 def main() -> int:
     a = MicroVmAssets.discover()
@@ -32,8 +44,9 @@ def main() -> int:
     record("real_guest_kernel", r.ok and lines and lines[0].startswith("6.6.")
            and lines[0].endswith("-virt"), r.as_dict())
     record("one_vcpu", len(lines) > 1 and lines[1] == "1", lines[:2])
-    record("memory_capped", len(lines) > 2 and int(lines[2].split()[1]) < 128 * 1024,
-           lines[2:3])
+    mem = [x for x in lines if "MemTotal" in x]
+    record("memory_capped", bool(mem) and int(mem[0].split()[1]) < 128 * 1024, mem)
+    net = [x for x in lines if x == "lo"]
     record("no_network_device", len(lines) > 3 and lines[3] == "lo"
            and all(x == "lo" for x in lines[3:]), lines[3:])
 
